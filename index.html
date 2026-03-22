@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Torch – Interaktivní mapa</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #1a1a2e;
+      color: #e0d8c8;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Toolbar ── */
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #16213e;
+      border-bottom: 1px solid #0f3460;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    #toolbar h1 {
+      font-size: 1.1rem;
+      color: #f5a623;
+      margin-right: 4px;
+      white-space: nowrap;
+    }
+    .btn {
+      padding: 6px 14px;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      background: #0f3460;
+      color: #e0d8c8;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .btn:hover { background: #1a4a80; }
+    .btn.active { background: #f5a623; color: #1a1a2e; border-color: #f5a623; }
+    .btn.danger { border-color: #c0392b; }
+    .btn.danger:hover { background: #c0392b; }
+    .btn.auth-btn { border-color: #27ae60; color: #2ecc71; }
+    .btn.auth-btn:hover { background: #1e6b3a; }
+
+    .sep { width: 1px; height: 24px; background: #0f3460; margin: 0 2px; }
+    #zoom-info { font-size: 0.78rem; color: #8899aa; margin-left: auto; }
+
+    /* ── Map ── */
+    #map-container {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      cursor: grab;
+    }
+    #map-container.add-cursor { cursor: crosshair; }
+    #map-container:active { cursor: grabbing; }
+    #map-container.add-cursor:active { cursor: crosshair; }
+
+    #map-viewport {
+      position: absolute;
+      top: 0; left: 0;
+      transform-origin: 0 0;
+    }
+    #map-img { display: block; }
+
+    /* ── Pins ── */
+    #pins-svg {
+      position: absolute;
+      top: 0; left: 0;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .pin-group { pointer-events: all; cursor: pointer; }
+    .pin-group .pin-circle {
+      fill: #f5a623; stroke: #fff; stroke-width: 2;
+      transition: r 0.1s;
+    }
+    .pin-group:hover .pin-circle { r: 10; }
+    .pin-group .pin-label {
+      fill: #fff; font-size: 13px; font-weight: 600;
+      text-shadow: 0 1px 3px #000; pointer-events: none;
+      paint-order: stroke; stroke: #1a1a2e; stroke-width: 3px;
+    }
+    .cat-city    .pin-circle { fill: #f5a623; }
+    .cat-village .pin-circle { fill: #e74c3c; }
+    .cat-dungeon .pin-circle { fill: #8e44ad; }
+    .cat-nature  .pin-circle { fill: #27ae60; }
+    .cat-poi     .pin-circle { fill: #2980b9; }
+    .cat-other   .pin-circle { fill: #7f8c8d; }
+
+    /* ── Right panel ── */
+    #panel {
+      position: fixed;
+      top: 0; right: 0;
+      width: 360px;
+      height: 100vh;
+      background: #16213e;
+      border-left: 2px solid #0f3460;
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      overflow: hidden;
+    }
+    #panel.open { transform: translateX(0); }
+
+    #panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: #0f3460;
+      flex-shrink: 0;
+    }
+    #panel-title { font-size: 1rem; font-weight: 600; color: #f5a623; }
+    #panel-close {
+      background: none; border: none; color: #e0d8c8;
+      font-size: 1.4rem; cursor: pointer; line-height: 1;
+    }
+
+    #panel-body {
+      flex: 1; overflow-y: auto; padding: 16px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+
+    /* View mode panel */
+    .view-category-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: #0f3460;
+      color: #e0d8c8;
+    }
+    .view-description {
+      color: #c0b8a8;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .view-section-title {
+      font-size: 0.78rem;
+      color: #8899aa;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+    .view-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .view-tag {
+      padding: 3px 10px;
+      background: #0f3460;
+      border-radius: 12px;
+      font-size: 0.82rem;
+    }
+    .view-service {
+      background: #1a1a2e;
+      border: 1px solid #0f3460;
+      border-radius: 6px;
+      padding: 8px 12px;
+    }
+    .view-service-name { font-weight: 600; font-size: 0.9rem; }
+    .view-service-type { font-size: 0.78rem; color: #8899aa; margin-top: 2px; }
+    .view-service-desc { font-size: 0.82rem; color: #c0b8a8; margin-top: 4px; }
+
+    /* Edit mode fields */
+    .field-label {
+      font-size: 0.78rem; color: #8899aa;
+      margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .field-input, .field-textarea, .field-select {
+      width: 100%; padding: 7px 10px;
+      background: #1a1a2e; border: 1px solid #0f3460;
+      border-radius: 4px; color: #e0d8c8;
+      font-size: 0.9rem; font-family: inherit;
+    }
+    .field-textarea { resize: vertical; min-height: 80px; }
+    .field-input:focus, .field-textarea:focus, .field-select:focus {
+      outline: none; border-color: #f5a623;
+    }
+
+    .tag-list { display: flex; flex-wrap: wrap; gap: 6px; min-height: 32px; }
+    .tag {
+      display: flex; align-items: center; gap: 4px;
+      padding: 3px 8px; background: #0f3460; border-radius: 12px; font-size: 0.8rem;
+    }
+    .tag button {
+      background: none; border: none; color: #e74c3c;
+      cursor: pointer; font-size: 1rem; line-height: 1; padding: 0;
+    }
+    .tag-add-row { display: flex; gap: 6px; }
+    .tag-add-row input { flex: 1; }
+    .tag-add-row .btn { padding: 6px 10px; }
+
+    .service-card {
+      background: #1a1a2e; border: 1px solid #0f3460;
+      border-radius: 6px; padding: 10px 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .service-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .service-name { font-weight: 600; font-size: 0.9rem; }
+
+    #panel-footer {
+      padding: 12px 16px; border-top: 1px solid #0f3460;
+      display: flex; gap: 8px; flex-shrink: 0;
+    }
+    #panel-footer .btn { flex: 1; }
+
+    /* ── Legend ── */
+    #legend {
+      position: fixed; bottom: 16px; left: 16px;
+      background: rgba(22,33,62,0.92); border: 1px solid #0f3460;
+      border-radius: 6px; padding: 10px 14px;
+      font-size: 0.78rem; z-index: 50;
+    }
+    #legend h3 { margin-bottom: 6px; color: #f5a623; font-size: 0.8rem; }
+    .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid #fff; flex-shrink: 0; }
+
+    /* ── Modals ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65); z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-box {
+      background: #16213e; border: 1px solid #0f3460;
+      border-radius: 10px; padding: 28px 28px 22px;
+      min-width: 300px; max-width: 340px; width: 90%;
+    }
+    .modal-box h2 { color: #f5a623; margin-bottom: 16px; font-size: 1.05rem; }
+    .modal-box p { margin-bottom: 18px; line-height: 1.5; }
+    .modal-box .field-input { margin-bottom: 8px; }
+    .modal-error { color: #e74c3c; font-size: 0.82rem; min-height: 18px; margin-bottom: 10px; }
+    .modal-btn-row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1a1a2e; }
+    ::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <h1>⚔ Torch</h1>
+
+  <!-- Editor-only controls -->
+  <button class="btn editor-only" id="btn-add-mode" style="display:none">+ Přidat místo</button>
+  <div class="sep editor-only" style="display:none"></div>
+  <button class="btn editor-only" id="btn-export" style="display:none">Export JSON</button>
+  <button class="btn editor-only" id="btn-import-trigger" style="display:none">Import JSON</button>
+  <input type="file" id="btn-import" accept=".json" style="display:none">
+  <div class="sep editor-only" style="display:none"></div>
+  <button class="btn danger editor-only" id="btn-clear-all" style="display:none">Smazat vše</button>
+
+  <span id="zoom-info" style="margin-left:auto">zoom: 100% | míst: 0</span>
+  <button class="btn auth-btn" id="btn-auth">🔐 PJ</button>
+</div>
+
+<!-- Map -->
+<div id="map-container">
+  <div id="map-viewport">
+    <img id="map-img" src="cislovana_mapa_zamerovani_lokaci.jpg" alt="Mapa světa Torch" draggable="false">
+    <svg id="pins-svg"></svg>
+  </div>
+</div>
+
+<!-- Right panel -->
+<div id="panel">
+  <div id="panel-header">
+    <span id="panel-title">Místo</span>
+    <button id="panel-close">×</button>
+  </div>
+  <div id="panel-body"></div>
+  <div id="panel-footer" style="display:none">
+    <button class="btn" id="panel-save">Uložit</button>
+    <button class="btn danger" id="panel-delete" style="display:none">Smazat</button>
+  </div>
+</div>
+
+<!-- Legend -->
+<div id="legend">
+  <h3>Legenda</h3>
+  <div class="legend-item"><div class="legend-dot" style="background:#f5a623"></div> Město</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#e74c3c"></div> Vesnice</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#8e44ad"></div> Dungeon</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#27ae60"></div> Příroda</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#2980b9"></div> Bod zájmu</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#7f8c8d"></div> Ostatní</div>
+</div>
+
+<!-- Login modal -->
+<div class="modal-overlay" id="login-overlay">
+  <div class="modal-box">
+    <h2>🔐 PJ přihlášení</h2>
+    <div>
+      <div class="field-label">Heslo</div>
+      <input class="field-input" id="login-pass" type="password" placeholder="heslo…" autocomplete="current-password">
+    </div>
+    <div class="modal-error" id="login-error"></div>
+    <div class="modal-btn-row">
+      <button class="btn" id="login-cancel">Zrušit</button>
+      <button class="btn active" id="login-submit">Přihlásit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div class="modal-overlay" id="confirm-overlay">
+  <div class="modal-box">
+    <p id="confirm-msg">Opravdu smazat?</p>
+    <div class="modal-btn-row">
+      <button class="btn" id="confirm-no">Zrušit</button>
+      <button class="btn danger" id="confirm-yes">Ano, smazat</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════
+const STORAGE_KEY   = 'torch_map_places';
+const PASS_KEY      = 'torch_editor_pass';
+const SESSION_KEY   = 'torch_editor_session';
+const DEFAULT_PASS  = 'pj';
+
+function getStoredPass() {
+  return localStorage.getItem(PASS_KEY) || DEFAULT_PASS;
+}
+
+// ══════════════════════════════════════════
+//  AUTH STATE
+// ══════════════════════════════════════════
+let isEditor = sessionStorage.getItem(SESSION_KEY) === '1';
+
+function enterEditorMode() {
+  isEditor = true;
+  sessionStorage.setItem(SESSION_KEY, '1');
+  document.querySelectorAll('.editor-only').forEach(el => el.style.display = '');
+  const btn = document.getElementById('btn-auth');
+  btn.textContent = '🔓 Odhlásit';
+  btn.classList.remove('auth-btn');
+  btn.classList.add('btn');
+  btn.style.borderColor = '#c0392b';
+  btn.style.color = '#e74c3c';
+  renderPins();
+}
+
+function exitEditorMode() {
+  isEditor = false;
+  sessionStorage.removeItem(SESSION_KEY);
+  document.querySelectorAll('.editor-only').forEach(el => el.style.display = 'none');
+  const btn = document.getElementById('btn-auth');
+  btn.textContent = '🔐 PJ';
+  btn.classList.add('auth-btn');
+  btn.style.borderColor = '';
+  btn.style.color = '';
+  // exit add mode if active
+  if (addMode) toggleAddMode(false);
+  closePanel();
+  renderPins();
+}
+
+document.getElementById('btn-auth').addEventListener('click', () => {
+  if (isEditor) {
+    exitEditorMode();
+  } else {
+    openLoginModal();
+  }
+});
+
+// Init toolbar state
+if (isEditor) {
+  document.querySelectorAll('.editor-only').forEach(el => el.style.display = '');
+  const btn = document.getElementById('btn-auth');
+  btn.textContent = '🔓 Odhlásit';
+  btn.classList.remove('auth-btn');
+  btn.style.borderColor = '#c0392b';
+  btn.style.color = '#e74c3c';
+}
+
+// ══════════════════════════════════════════
+//  LOGIN MODAL
+// ══════════════════════════════════════════
+const loginOverlay = document.getElementById('login-overlay');
+const loginPass    = document.getElementById('login-pass');
+const loginError   = document.getElementById('login-error');
+
+function openLoginModal() {
+  loginPass.value = '';
+  loginError.textContent = '';
+  loginOverlay.classList.add('show');
+  setTimeout(() => loginPass.focus(), 50);
+}
+
+function tryLogin() {
+  const entered = loginPass.value;
+  if (entered === getStoredPass()) {
+    loginOverlay.classList.remove('show');
+    enterEditorMode();
+  } else {
+    loginError.textContent = 'Špatné heslo.';
+    loginPass.select();
+  }
+}
+
+document.getElementById('login-submit').addEventListener('click', tryLogin);
+document.getElementById('login-cancel').addEventListener('click', () => loginOverlay.classList.remove('show'));
+loginPass.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+
+// ══════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════
+function loadPlaces() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+function savePlaces(places) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(places));
+}
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+let places = loadPlaces();
+
+// ══════════════════════════════════════════
+//  MAP PAN & ZOOM
+// ══════════════════════════════════════════
+const container = document.getElementById('map-container');
+const viewport  = document.getElementById('map-viewport');
+const mapImg    = document.getElementById('map-img');
+const pinsSvg   = document.getElementById('pins-svg');
+
+let scale = 1, tx = 0, ty = 0;
+let isPanning = false, startX, startY, startTx, startTy;
+const IMG_W = 5000, IMG_H = 2757;
+
+mapImg.style.width  = IMG_W + 'px';
+mapImg.style.height = IMG_H + 'px';
+pinsSvg.setAttribute('width',  IMG_W);
+pinsSvg.setAttribute('height', IMG_H);
+pinsSvg.setAttribute('viewBox', `0 0 ${IMG_W} ${IMG_H}`);
+
+function applyTransform() {
+  viewport.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`;
+  document.getElementById('zoom-info').textContent =
+    `zoom: ${Math.round(scale*100)}% | míst: ${places.length}`;
+}
+
+function fitMap() {
+  const cw = container.clientWidth, ch = container.clientHeight;
+  scale = Math.min(cw / IMG_W, ch / IMG_H);
+  tx = (cw - IMG_W * scale) / 2;
+  ty = (ch - IMG_H * scale) / 2;
+  applyTransform();
+}
+window.addEventListener('load', fitMap);
+window.addEventListener('resize', fitMap);
+
+container.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = container.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const delta = e.deltaY < 0 ? 1.12 : 1/1.12;
+  const ns = Math.min(8, Math.max(0.1, scale * delta));
+  tx = mx - (mx - tx) * (ns / scale);
+  ty = my - (my - ty) * (ns / scale);
+  scale = ns;
+  applyTransform();
+}, { passive: false });
+
+container.addEventListener('mousedown', e => {
+  if (addMode || e.button !== 0) return;
+  isPanning = true;
+  startX = e.clientX; startY = e.clientY; startTx = tx; startTy = ty;
+});
+window.addEventListener('mousemove', e => {
+  if (!isPanning) return;
+  tx = startTx + (e.clientX - startX);
+  ty = startTy + (e.clientY - startY);
+  applyTransform();
+});
+window.addEventListener('mouseup', () => isPanning = false);
+
+let lastTouchDist = null;
+container.addEventListener('touchstart', e => {
+  if (e.touches.length === 1 && !addMode) {
+    isPanning = true;
+    startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+    startTx = tx; startTy = ty;
+  }
+  if (e.touches.length === 2)
+    lastTouchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+}, { passive: true });
+container.addEventListener('touchmove', e => {
+  if (e.touches.length === 1 && isPanning) {
+    tx = startTx + (e.touches[0].clientX - startX);
+    ty = startTy + (e.touches[0].clientY - startY);
+    applyTransform();
+  }
+  if (e.touches.length === 2 && lastTouchDist) {
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    const rect = container.getBoundingClientRect();
+    const cx = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
+    const cy = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
+    const ns = Math.min(8, Math.max(0.1, scale * (d / lastTouchDist)));
+    tx = cx - (cx - tx) * (ns / scale);
+    ty = cy - (cy - ty) * (ns / scale);
+    scale = ns; lastTouchDist = d;
+    applyTransform();
+  }
+}, { passive: true });
+container.addEventListener('touchend', () => { isPanning = false; lastTouchDist = null; });
+
+function clientToMap(cx, cy) {
+  const rect = container.getBoundingClientRect();
+  return { x: (cx - rect.left - tx) / scale, y: (cy - rect.top - ty) / scale };
+}
+
+// ══════════════════════════════════════════
+//  ADD MODE (editor only)
+// ══════════════════════════════════════════
+let addMode = false;
+const btnAddMode = document.getElementById('btn-add-mode');
+
+function toggleAddMode(on) {
+  addMode = on;
+  btnAddMode.classList.toggle('active', on);
+  container.classList.toggle('add-cursor', on);
+  btnAddMode.textContent = on ? '✕ Zrušit přidávání' : '+ Přidat místo';
+}
+
+btnAddMode.addEventListener('click', () => toggleAddMode(!addMode));
+
+container.addEventListener('click', e => {
+  if (!addMode) return;
+  if (e.target !== container && e.target !== viewport && e.target !== mapImg && e.target !== pinsSvg) return;
+  const pos = clientToMap(e.clientX, e.clientY);
+  if (pos.x < 0 || pos.y < 0 || pos.x > IMG_W || pos.y > IMG_H) return;
+  openPanelEdit(null, pos.x, pos.y);
+  toggleAddMode(false);
+});
+
+// ══════════════════════════════════════════
+//  PANEL
+// ══════════════════════════════════════════
+const panel       = document.getElementById('panel');
+const panelTitle  = document.getElementById('panel-title');
+const panelClose  = document.getElementById('panel-close');
+const panelBody   = document.getElementById('panel-body');
+const panelFooter = document.getElementById('panel-footer');
+const panelSave   = document.getElementById('panel-save');
+const panelDelete = document.getElementById('panel-delete');
+
+let editingId = null, editingX = 0, editingY = 0;
+let tempBuildings = [], tempServices = [];
+
+const CAT_LABELS = { city:'Město', village:'Vesnice / osada', dungeon:'Dungeon / lokace', nature:'Příroda / oblast', poi:'Bod zájmu', other:'Ostatní' };
+const CAT_COLORS = { city:'#f5a623', village:'#e74c3c', dungeon:'#8e44ad', nature:'#27ae60', poi:'#2980b9', other:'#7f8c8d' };
+const SERVICE_TYPES = ['Krčma / hospoda','Ubytování','Kovář','Zbrojíř','Lékárník / alchymista','Kněžský chrám','Obchodník','Stáje','Vězeň / soud','Gildy','Jiné'];
+
+// ── VIEW mode panel ──
+function openPanelView(place) {
+  panelTitle.textContent = place.name || 'Místo';
+  panelFooter.style.display = 'none';
+  editingId = null;
+
+  let html = `<div>
+    <span class="view-category-badge" style="background:${CAT_COLORS[place.category]||'#0f3460'};color:#fff">
+      ${CAT_LABELS[place.category] || 'Ostatní'}
+    </span>
+  </div>`;
+
+  if (place.description) {
+    html += `<div><p class="view-description">${escHtml(place.description).replace(/\n/g,'<br>')}</p></div>`;
+  }
+
+  if (place.buildings && place.buildings.length) {
+    html += `<div><div class="view-section-title">Budovy</div><div class="view-tags">`;
+    place.buildings.forEach(b => { html += `<span class="view-tag">${escHtml(b)}</span>`; });
+    html += `</div></div>`;
+  }
+
+  if (place.services && place.services.length) {
+    html += `<div><div class="view-section-title">Služby</div><div style="display:flex;flex-direction:column;gap:8px">`;
+    place.services.forEach(s => {
+      html += `<div class="view-service">
+        <div class="view-service-name">${escHtml(s.name || s.type)}</div>
+        ${s.name ? `<div class="view-service-type">${escHtml(s.type)}</div>` : ''}
+        ${s.description ? `<div class="view-service-desc">${escHtml(s.description).replace(/\n/g,'<br>')}</div>` : ''}
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  panelBody.innerHTML = html;
+  panel.classList.add('open');
+}
+
+// ── EDIT mode panel ──
+function openPanelEdit(place, x, y) {
+  if (place) {
+    editingId = place.id;
+    panelTitle.textContent = 'Upravit místo';
+    panelDelete.style.display = '';
+    tempBuildings = [...(place.buildings || [])];
+    tempServices  = JSON.parse(JSON.stringify(place.services || []));
+  } else {
+    editingId = null;
+    editingX  = x; editingY = y;
+    panelTitle.textContent = 'Nové místo';
+    panelDelete.style.display = 'none';
+    tempBuildings = []; tempServices = [];
+  }
+
+  panelBody.innerHTML = `
+    <div>
+      <div class="field-label">Název místa</div>
+      <input class="field-input" id="f-name" placeholder="např. Stará pevnost" value="${escHtml(place?.name||'')}">
+    </div>
+    <div>
+      <div class="field-label">Kategorie</div>
+      <select class="field-select" id="f-category">
+        <option value="city"${(place?.category==='city'?' selected':'')}>Město</option>
+        <option value="village"${(place?.category==='village'?' selected':'')}>Vesnice / osada</option>
+        <option value="dungeon"${(place?.category==='dungeon'?' selected':'')}>Dungeon / lokace</option>
+        <option value="nature"${(place?.category==='nature'?' selected':'')}>Příroda / oblast</option>
+        <option value="poi"${(place?.category==='poi'?' selected':'')}>Bod zájmu</option>
+        <option value="other"${(!place||place.category==='other'?' selected':'')}>Ostatní</option>
+      </select>
+    </div>
+    <div>
+      <div class="field-label">Popis</div>
+      <textarea class="field-textarea" id="f-description" placeholder="Krátký popis místa…">${escHtml(place?.description||'')}</textarea>
+    </div>
+    <div>
+      <div class="field-label">Budovy</div>
+      <div class="tag-list" id="buildings-list"></div>
+      <div class="tag-add-row" style="margin-top:6px">
+        <input class="field-input" id="building-input" placeholder="přidat budovu…">
+        <button class="btn" id="building-add">+</button>
+      </div>
+    </div>
+    <div>
+      <div class="field-label">Služby</div>
+      <div id="services-list" style="display:flex;flex-direction:column;gap:8px"></div>
+      <button class="btn" id="service-add" style="margin-top:8px;width:100%">+ Přidat službu</button>
+    </div>
+    <div>
+      <div class="field-label">Poznámky PJ (skryté pro hráče)</div>
+      <textarea class="field-textarea" id="f-notes" placeholder="Tajné informace…" style="min-height:60px">${escHtml(place?.notes||'')}</textarea>
+    </div>
+  `;
+
+  panelFooter.style.display = '';
+  renderBuildings();
+  renderServices();
+
+  document.getElementById('building-add').addEventListener('click', addBuilding);
+  document.getElementById('building-input').addEventListener('keydown', e => { if (e.key==='Enter') addBuilding(); });
+  document.getElementById('service-add').addEventListener('click', () => {
+    tempServices.push({ type: SERVICE_TYPES[0], name: '', description: '' });
+    renderServices();
+    document.getElementById('services-list').lastElementChild?.scrollIntoView({ behavior:'smooth' });
+  });
+
+  panel.classList.add('open');
+  document.getElementById('f-name').focus();
+}
+
+function closePanel() {
+  panel.classList.remove('open');
+  editingId = null;
+}
+panelClose.addEventListener('click', closePanel);
+
+// ── Buildings ──
+function renderBuildings() {
+  const list = document.getElementById('buildings-list');
+  if (!list) return;
+  list.innerHTML = '';
+  tempBuildings.forEach((b, i) => {
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.innerHTML = `${escHtml(b)} <button data-i="${i}">×</button>`;
+    list.appendChild(tag);
+  });
+  list.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
+    tempBuildings.splice(+btn.dataset.i, 1); renderBuildings();
+  }));
+}
+function addBuilding() {
+  const inp = document.getElementById('building-input');
+  const v = inp?.value.trim();
+  if (!v) return;
+  tempBuildings.push(v);
+  inp.value = '';
+  renderBuildings();
+}
+
+// ── Services ──
+function renderServices() {
+  const list = document.getElementById('services-list');
+  if (!list) return;
+  list.innerHTML = '';
+  tempServices.forEach((svc, i) => {
+    const card = document.createElement('div');
+    card.className = 'service-card';
+    card.innerHTML = `
+      <div class="service-card-header">
+        <span class="service-name">${escHtml(svc.name||svc.type)}</span>
+        <button class="btn danger" style="padding:3px 8px;font-size:0.75rem" data-del="${i}">Odebrat</button>
+      </div>
+      <div>
+        <div class="field-label">Typ</div>
+        <select class="field-select svc-type" data-i="${i}">
+          ${SERVICE_TYPES.map(t=>`<option${svc.type===t?' selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <div class="field-label">Název (volitelný)</div>
+        <input class="field-input svc-name-input" data-i="${i}" value="${escHtml(svc.name||'')}" placeholder="např. U Zlatého draka">
+      </div>
+      <div>
+        <div class="field-label">Popis</div>
+        <textarea class="field-textarea svc-desc" data-i="${i}" style="min-height:50px" placeholder="ceny, info…">${escHtml(svc.description||'')}</textarea>
+      </div>`;
+    list.appendChild(card);
+  });
+  list.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', () => { tempServices.splice(+btn.dataset.del,1); renderServices(); }));
+  list.querySelectorAll('.svc-type').forEach(sel => sel.addEventListener('change', () => { tempServices[+sel.dataset.i].type = sel.value; }));
+  list.querySelectorAll('.svc-name-input').forEach(inp => inp.addEventListener('input', () => { tempServices[+inp.dataset.i].name = inp.value; }));
+  list.querySelectorAll('.svc-desc').forEach(ta => ta.addEventListener('input', () => { tempServices[+ta.dataset.i].description = ta.value; }));
+}
+
+function syncServicesFromDOM() {
+  const list = document.getElementById('services-list');
+  if (!list) return;
+  list.querySelectorAll('.svc-type').forEach(sel => { tempServices[+sel.dataset.i].type = sel.value; });
+  list.querySelectorAll('.svc-name-input').forEach(inp => { tempServices[+inp.dataset.i].name = inp.value; });
+  list.querySelectorAll('.svc-desc').forEach(ta => { tempServices[+ta.dataset.i].description = ta.value; });
+}
+
+// ── Save ──
+panelSave.addEventListener('click', () => {
+  syncServicesFromDOM();
+  const name = (document.getElementById('f-name')?.value.trim()) || 'Nepojmenované místo';
+  const category = document.getElementById('f-category')?.value || 'other';
+  const description = document.getElementById('f-description')?.value.trim() || '';
+  const notes = document.getElementById('f-notes')?.value.trim() || '';
+
+  if (editingId) {
+    const idx = places.findIndex(p => p.id === editingId);
+    if (idx !== -1) places[idx] = { ...places[idx], name, category, description, notes, buildings: [...tempBuildings], services: JSON.parse(JSON.stringify(tempServices)) };
+  } else {
+    places.push({ id: genId(), x: editingX, y: editingY, name, category, description, notes, buildings: [...tempBuildings], services: JSON.parse(JSON.stringify(tempServices)) });
+  }
+  savePlaces(places);
+  renderPins();
+  closePanel();
+});
+
+// ── Delete ──
+panelDelete.addEventListener('click', () => {
+  confirm_('Opravdu smazat toto místo?', () => {
+    places = places.filter(p => p.id !== editingId);
+    savePlaces(places);
+    renderPins();
+    closePanel();
+  });
+});
+
+// ══════════════════════════════════════════
+//  PINS
+// ══════════════════════════════════════════
+function renderPins() {
+  pinsSvg.innerHTML = '';
+  places.forEach(place => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', `pin-group cat-${place.category}`);
+
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', place.x);
+    circle.setAttribute('cy', place.y);
+    circle.setAttribute('r', 8);
+    circle.setAttribute('class', 'pin-circle');
+
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', place.x);
+    text.setAttribute('y', place.y - 12);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('class', 'pin-label');
+    text.textContent = place.name;
+
+    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    title.textContent = place.name + (place.description ? '\n' + place.description : '');
+
+    g.appendChild(circle);
+    g.appendChild(text);
+    g.appendChild(title);
+
+    g.addEventListener('click', e => {
+      e.stopPropagation();
+      if (isEditor) openPanelEdit(place);
+      else openPanelView(place);
+    });
+
+    pinsSvg.appendChild(g);
+  });
+  document.getElementById('zoom-info').textContent = `zoom: ${Math.round(scale*100)}% | míst: ${places.length}`;
+}
+
+// ══════════════════════════════════════════
+//  EXPORT / IMPORT / CLEAR
+// ══════════════════════════════════════════
+document.getElementById('btn-export').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(places, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'torch_mapa.json';
+  a.click();
+});
+
+document.getElementById('btn-import-trigger').addEventListener('click', () => document.getElementById('btn-import').click());
+
+document.getElementById('btn-import').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!Array.isArray(data)) throw new Error();
+      confirm_(`Importovat ${data.length} míst? (přepíše stávající)`, () => {
+        places = data; savePlaces(places); renderPins();
+      });
+    } catch { alert('Chyba: soubor není platný JSON.'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+document.getElementById('btn-clear-all').addEventListener('click', () => {
+  confirm_('Opravdu smazat VŠECHNA místa?', () => {
+    places = []; savePlaces(places); renderPins();
+  });
+});
+
+// ══════════════════════════════════════════
+//  CONFIRM DIALOG
+// ══════════════════════════════════════════
+let confirmCallback = null;
+const confirmOverlay = document.getElementById('confirm-overlay');
+
+function confirm_(msg, cb) {
+  document.getElementById('confirm-msg').textContent = msg;
+  confirmCallback = cb;
+  confirmOverlay.classList.add('show');
+}
+document.getElementById('confirm-yes').addEventListener('click', () => {
+  confirmOverlay.classList.remove('show');
+  if (confirmCallback) confirmCallback();
+  confirmCallback = null;
+});
+document.getElementById('confirm-no').addEventListener('click', () => {
+  confirmOverlay.classList.remove('show');
+  confirmCallback = null;
+});
+
+// ══════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+renderPins();
+</script>
+</body>
+</html>
