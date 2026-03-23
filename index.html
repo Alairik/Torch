@@ -247,6 +247,17 @@
     .modal-error { color: #e74c3c; font-size: 0.82rem; min-height: 18px; margin-bottom: 10px; }
     .modal-btn-row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
 
+    /* ── Sync status ── */
+    #sync-status {
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    #sync-status.syncing { color: #f5a623; }
+    #sync-status.ok      { color: #2ecc71; }
+    #sync-status.error   { color: #e74c3c; }
+
     /* scrollbar */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: #1a1a2e; }
@@ -269,6 +280,8 @@
   <button class="btn danger editor-only" id="btn-clear-all" style="display:none">Smazat vše</button>
 
   <span id="zoom-info" style="margin-left:auto">zoom: 100% | míst: 0</span>
+  <span id="sync-status"></span>
+  <button class="btn editor-only" id="btn-gh-setup" style="display:none" title="Nastavit GitHub sync">☁</button>
   <button class="btn auth-btn" id="btn-auth">🔐 PJ</button>
 </div>
 
@@ -320,6 +333,25 @@
   </div>
 </div>
 
+<!-- GitHub token modal -->
+<div class="modal-overlay" id="gh-overlay">
+  <div class="modal-box">
+    <h2>☁ GitHub sync</h2>
+    <p style="font-size:0.85rem;color:#8899aa;margin-bottom:12px">
+      Zadej GitHub Personal Access Token (classic) s oprávněním <code>repo</code>.<br>
+      Token se uloží jen v tomto prohlížeči (localStorage).
+    </p>
+    <div class="field-label">Personal Access Token</div>
+    <input class="field-input" id="gh-token-input" type="password" placeholder="ghp_…" autocomplete="off">
+    <div class="modal-error" id="gh-error"></div>
+    <div class="modal-btn-row">
+      <button class="btn danger" id="gh-clear" style="margin-right:auto">Odebrat token</button>
+      <button class="btn" id="gh-cancel">Zrušit</button>
+      <button class="btn active" id="gh-save">Uložit</button>
+    </div>
+  </div>
+</div>
+
 <!-- Confirm modal -->
 <div class="modal-overlay" id="confirm-overlay">
   <div class="modal-box">
@@ -339,6 +371,104 @@ const STORAGE_KEY   = 'torch_map_places';
 const PASS_KEY      = 'torch_editor_pass';
 const SESSION_KEY   = 'torch_editor_session';
 const DEFAULT_PASS  = 'pj';
+
+const GH_OWNER  = 'Alairik';
+const GH_REPO   = 'Torch';
+const GH_BRANCH = 'claude/interactive-map-editor-Qh7ge';
+const GH_FILE   = 'places.json';
+const GH_TOKEN_KEY = 'torch_github_token';
+
+// ══════════════════════════════════════════
+//  GITHUB SYNC
+// ══════════════════════════════════════════
+function setSyncStatus(state, msg) {
+  const el = document.getElementById('sync-status');
+  el.className = state ? 'sync-status ' + state : 'sync-status';
+  el.textContent = msg || '';
+}
+
+async function loadFromGitHub() {
+  try {
+    const url = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${GH_FILE}?_=${Date.now()}`;
+    const res = await fetch(url);
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (!Array.isArray(data)) return false;
+    places = data;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(places));
+    renderPins();
+    setSyncStatus('ok', '✓ načteno z GitHubu');
+    setTimeout(() => setSyncStatus('', ''), 3000);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function syncToGitHub() {
+  const token = localStorage.getItem(GH_TOKEN_KEY);
+  if (!token) return;
+
+  setSyncStatus('syncing', '⟳ ukládám…');
+
+  try {
+    const apiBase = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
+    // get current SHA
+    const shaRes = await fetch(`${apiBase}?ref=${encodeURIComponent(GH_BRANCH)}`, {
+      headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
+    });
+    let sha = null;
+    if (shaRes.ok) { const d = await shaRes.json(); sha = d.sha; }
+
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(places, null, 2) + '\n')));
+    const body = { message: 'update: map places', content, branch: GH_BRANCH };
+    if (sha) body.sha = sha;
+
+    const res = await fetch(apiBase, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (res.ok) {
+      setSyncStatus('ok', '✓ uloženo');
+      setTimeout(() => setSyncStatus('', ''), 3000);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      setSyncStatus('error', '✗ ' + (err.message || res.status));
+    }
+  } catch (e) {
+    setSyncStatus('error', '✗ síťová chyba');
+  }
+}
+
+// GitHub token modal
+document.getElementById('btn-gh-setup').addEventListener('click', () => {
+  const existing = localStorage.getItem(GH_TOKEN_KEY) || '';
+  document.getElementById('gh-token-input').value = existing ? '••••••••' : '';
+  document.getElementById('gh-error').textContent = '';
+  document.getElementById('gh-overlay').classList.add('show');
+});
+document.getElementById('gh-cancel').addEventListener('click', () => document.getElementById('gh-overlay').classList.remove('show'));
+document.getElementById('gh-clear').addEventListener('click', () => {
+  localStorage.removeItem(GH_TOKEN_KEY);
+  document.getElementById('gh-overlay').classList.remove('show');
+  setSyncStatus('', '');
+});
+document.getElementById('gh-save').addEventListener('click', () => {
+  const val = document.getElementById('gh-token-input').value.trim();
+  if (!val || val === '••••••••') {
+    document.getElementById('gh-error').textContent = 'Zadej platný token.';
+    return;
+  }
+  localStorage.setItem(GH_TOKEN_KEY, val);
+  document.getElementById('gh-overlay').classList.remove('show');
+  syncToGitHub();
+});
 
 function getStoredPass() {
   return localStorage.getItem(PASS_KEY) || DEFAULT_PASS;
@@ -431,8 +561,9 @@ function loadPlaces() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
   catch { return []; }
 }
-function savePlaces(places) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(places));
+function savePlaces(arr) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+  syncToGitHub();
 }
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -895,6 +1026,7 @@ function escHtml(str) {
 //  INIT
 // ══════════════════════════════════════════
 renderPins();
+loadFromGitHub();
 </script>
 </body>
 </html>
