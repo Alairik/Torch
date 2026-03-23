@@ -388,26 +388,17 @@ function setSyncStatus(state, msg) {
 }
 
 async function loadFromGitHub() {
-  const token = localStorage.getItem(GH_TOKEN_KEY);
-  setSyncStatus('syncing', '⟳ načítám…');
   try {
-    // GitHub Contents API — funguje pro privátní i veřejná repa
-    const apiUrl = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}?ref=${encodeURIComponent(GH_BRANCH)}`;
-    const headers = { 'Accept': 'application/vnd.github.v3+json' };
-    if (token) headers['Authorization'] = `token ${token}`;
-    const res = await fetch(apiUrl, { headers });
-    if (!res.ok) { setSyncStatus('error', '✗ načtení selhalo (' + res.status + ')'); return false; }
-    const meta = await res.json();
-    const data = JSON.parse(atob(meta.content.replace(/\s/g, '')));
+    // places.json je statický soubor na stejné doméně (GitHub Pages) — žádný token nepotřeba
+    const res = await fetch('./places.json?_=' + Date.now());
+    if (!res.ok) return false;
+    const data = await res.json();
     if (!Array.isArray(data)) return false;
     places = data;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(places));
     renderPins();
-    setSyncStatus('ok', '✓ načteno z GitHubu');
-    setTimeout(() => setSyncStatus('', ''), 3000);
     return true;
   } catch (e) {
-    setSyncStatus('error', '✗ ' + e.message);
     return false;
   }
 }
