@@ -262,5 +262,121 @@
     "notes": "",
     "buildings": [],
     "services": []
+  },
+  {
+    "id": "mna1mjazrwzja",
+    "x": 755.5093775638663,
+    "y": 533.3852054058665,
+    "name": "Vlčice",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mna1mu5yoj1fr",
+    "x": 889.0100978202144,
+    "y": 487.13298736429704,
+    "name": "Horký pramen",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mna1n14gyzo0p",
+    "x": 734.4856420904257,
+    "y": 398.83329837584637,
+    "name": "Sledová",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mna1naewbgnyt",
+    "x": 623.0598440811904,
+    "y": 286.356313592939,
+    "name": "Elslayer",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mna1nja5ass49",
+    "x": 1021.4596313028903,
+    "y": 556.5113144266511,
+    "name": "Černá voda",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mna1o0jwgan3l",
+    "x": 1067.7118493444598,
+    "y": 86.63082659525294,
+    "name": "Vlnolamy",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mna1o9aq3vjp7",
+    "x": 1311.5871808363713,
+    "y": 20.406059853914943,
+    "name": "Nordril",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mna1okr1ug240",
+    "x": 1665.837123563846,
+    "y": 178.0840759047197,
+    "name": "Tříšť",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mna1ot75bj9vg",
+    "x": 1776.2117347994092,
+    "y": 403.0380454705345,
+    "name": "Rudý vrch",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": [
+      {
+        "type": "Krčma / hospoda",
+        "name": "",
+        "description": ""
+      }
+    ]
+  },
+  {
+    "id": "mna1pxdez6poj",
+    "x": 2199.840004589238,
+    "y": 268.4861384405144,
+    "name": "Hluboká voda",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
   }
 ]
