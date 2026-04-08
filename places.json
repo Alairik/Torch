@@ -378,5 +378,159 @@
     "notes": "",
     "buildings": [],
     "services": []
+  },
+  {
+    "id": "mnnk7gebvicgq",
+    "x": 2399.8683418181095,
+    "y": 401.52898074893403,
+    "name": "Severná",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mnnk7zis7zq42",
+    "x": 3195.3835371903874,
+    "y": 625.1480199539179,
+    "name": "Krpov",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mnnk9flyndc79",
+    "x": 3290.620382788495,
+    "y": 1004.388941387167,
+    "name": "Hrůzov",
+    "category": "village",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mnnk9qv4x9zl1",
+    "x": 3329.822763496971,
+    "y": 907.8907734893802,
+    "name": "Ardenské opatství",
+    "category": "poi",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mnnkatp6n1pci",
+    "x": 2158.77728848737,
+    "y": 400.27020277706373,
+    "name": "Trojútesy",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mnnkb2obpf5fw",
+    "x": 1887.3761912748441,
+    "y": 223.35689496445443,
+    "name": "Rinidal",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mnnkbiz8m3sg4",
+    "x": 2200.9952369426514,
+    "y": 533.960372885456,
+    "name": "Zábřeh",
+    "category": "other",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mnnkdhr6emeic",
+    "x": 3124.221059947622,
+    "y": 2595.8794838379777,
+    "name": "Lankerk",
+    "category": "village",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mnnkf7g1336vw",
+    "x": 1178.2769055366934,
+    "y": 2506.3167022562116,
+    "name": "Střilhorn",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mnnkfe42ccfh3",
+    "x": 1310.6395682874015,
+    "y": 2556.399871945669,
+    "name": "Dubno",
+    "category": "village",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mnnkg5t07mw71",
+    "x": 777.0361761332301,
+    "y": 1490.0320670669591,
+    "name": "Ležáry",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mnnkhcduw5ogm",
+    "x": 1554.952631194842,
+    "y": 1090.2277844466257,
+    "name": "Adlerburg",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mnnkhz2auc8gp",
+    "x": 2087.9226104700947,
+    "y": 1269.3341061755152,
+    "name": "Bludnov",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mnodi1auitw4b",
+    "x": 4688.954507369503,
+    "y": 1198.4529341585,
+    "name": "Hlubina",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
   }
 ]
