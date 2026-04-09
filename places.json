@@ -554,5 +554,38 @@
     "notes": "",
     "buildings": [],
     "services": []
+  },
+  {
+    "id": "mnrt735o3t7s7",
+    "x": 4199.197237455417,
+    "y": 1382.5721130839665,
+    "name": "Drinad",
+    "category": "village",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mnrt7jp3liy0k",
+    "x": 4333.8776456586,
+    "y": 1402.8853065859728,
+    "name": "Kerling",
+    "category": "city",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
+  },
+  {
+    "id": "mnruvbwmkfjjk",
+    "x": 3797.71168651459,
+    "y": 1621.3604001323695,
+    "name": "Strachov",
+    "category": "village",
+    "description": "",
+    "notes": "",
+    "buildings": [],
+    "services": []
   }
 ]
